@@ -4,7 +4,7 @@ image_width = 112
 chanels = 3
 #
 net_depth = 50
-num_classes = 85164
+num_classes = 12
 #
 weight_deacy = 5e-4 # learning alg momentum
 #
@@ -23,4 +23,4 @@ saver_maxkeep = 20
 show_info_interval = 20 # intervals to save ckpt file
 summary_interval = 300 # interval to save summary
 ckpt_interval = 10000 # intervals to save ckpt file
-tfrecords_file_path = ''
+tfrecords_file_path = '/home/minhdc/Documents/arc-face-tensorflow/dataset'

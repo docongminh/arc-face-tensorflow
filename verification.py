@@ -152,15 +152,15 @@ def data_iter(datasets, batch_size):
 
 def test(data_set, sess, embedding_tensor, batch_size, label_shape=None, feed_dict=None, input_placeholder=None):
     '''
-    referenc official implementation [insightface](https://github.com/deepinsight/insightface)
-    :param data_set:
-    :param sess:
-    :param embedding_tensor:
-    :param batch_size:
-    :param label_shape:
-    :param feed_dict:
-    :param input_placeholder:
-    :return:
+        referenc official implementation [insightface](https://github.com/deepinsight/insightface)
+        :param data_set:
+        :param sess:
+        :param embedding_tensor:
+        :param batch_size:
+        :param label_shape:
+        :param feed_dict:
+        :param input_placeholder:
+        :return:
     '''
     print('testing verification..')
     data_list = data_set[0]

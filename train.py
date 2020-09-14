@@ -1,8 +1,8 @@
 import tensorflow as tf
 import tensorlayer as tl
 import argparse
-import config
-from utils.mx2convert import parse_function
+import config as cfg
+from utils.utils import parse_function
 import os
 from backbone.resnet import get_resnet
 from loss import arcface_loss, cosineface_losses, combine_loss_val
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     args = get_parser()
     global_step = tf.Variable(name='global_step', initial_value=0, trainable=False)
     inc_op = tf.assign_add(global_step, 1, name='increment_global_step')
-    images = tf.placeholder(name='img_inputs', shape=[None, config.image_height, config.image_width, config.chanels], dtype=tf.float32)
+    images = tf.placeholder(name='img_inputs', shape=[None, cfg.image_height, cfg.image_width, cfg.chanels], dtype=tf.float32)
     labels = tf.placeholder(name='img_labels', shape=[None, ], dtype=tf.int64)
     # trainable = tf.placeholder(name='trainable_bn', dtype=tf.bool)
     dropout_rate = tf.placeholder(name='dropout_rate', dtype=tf.float32)
@@ -57,31 +57,31 @@ if __name__ == '__main__':
     # 2.1 train datasets
     # the image is substracted 127.5 and multiplied 1/128.
     # random flip left right
-    tfrecords_f = os.path.join(config.tfrecords_file_path, 'tran.tfrecords')
+    tfrecords_f = os.path.join(cfg.tfrecords_file_path, 'data.tfrecords')
     dataset = tf.data.TFRecordDataset(tfrecords_f)
     dataset = dataset.map(parse_function)
-    dataset = dataset.shuffle(buffer_size=config.buffer_size)
-    dataset = dataset.batch(config.batch_size)
+    dataset = dataset.shuffle(buffer_size=cfg.buffer_size)
+    dataset = dataset.batch(cfg.batch_size)
     iterator = dataset.make_initializable_iterator()
     next_element = iterator.get_next()
     # ===========================================================
     # 2.2 prepare validate datasets
-    ver_list = []
-    ver_name_list = []
-    for db in args.eval_datasets:
-        print('begin db %s convert.' % db)
-        data_set = load_bin(db, args.image_size, args)
-        ver_list.append(data_set)
-        ver_name_list.append(db)
+    # ver_list = []
+    # ver_name_list = []
+    # for db in args.eval_datasets:
+    #     print('begin db %s convert.' % db)
+    #     data_set = load_bin(db, args.image_size, args)
+    #     ver_list.append(data_set)
+    #     ver_name_list.append(db)
     # 3. define network, loss, optimize method, learning rate schedule, summary writer, saver
     # 3.1 inference phase
     w_init_method = tf.contrib.layers.xavier_initializer(uniform=False)
-    net = get_resnet(images, config.net_depth, type='ir', w_init=w_init_method, trainable=True, keep_rate=dropout_rate)
+    net = get_resnet(images, cfg.net_depth, type='ir', w_init=w_init_method, trainable=True, keep_rate=dropout_rate)
     # 3.2 get arcface loss
-    logit = arcface_loss(embedding=net.outputs, labels=labels, w_init=w_init_method, out_num=config.num_classes)
+    logit = arcface_loss(embedding=net.outputs, labels=labels, w_init=w_init_method, out_num=cfg.num_classes)
     # test net  because of batch normal layer
     tl.layers.set_name_reuse(True)
-    test_net = get_resnet(images, config.net_depth, type='ir', w_init=w_init_method, trainable=False, reuse=True, keep_rate=dropout_rate)
+    test_net = get_resnet(images, cfg.net_depth, type='ir', w_init=w_init_method, trainable=False, reuse=True, keep_rate=dropout_rate)
     embedding_tensor = test_net.outputs
     # 3.3 define the cross entropy
     inference_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logit, labels=labels))
@@ -92,29 +92,29 @@ if __name__ == '__main__':
     # print('##########'*30)
     wd_loss = 0
     for weights in tl.layers.get_variables_with_name('W_conv2d', True, True):
-        wd_loss += tf.contrib.layers.l2_regularizer(config.weight_deacy)(weights)
+        wd_loss += tf.contrib.layers.l2_regularizer(cfg.weight_deacy)(weights)
     for W in tl.layers.get_variables_with_name('resnet_v1_50/E_DenseLayer/W', True, True):
-        wd_loss += tf.contrib.layers.l2_regularizer(config.weight_deacy)(W)
+        wd_loss += tf.contrib.layers.l2_regularizer(cfg.weight_deacy)(W)
     for weights in tl.layers.get_variables_with_name('embedding_weights', True, True):
-        wd_loss += tf.contrib.layers.l2_regularizer(config.weight_deacy)(weights)
+        wd_loss += tf.contrib.layers.l2_regularizer(cfg.weight_deacy)(weights)
     for gamma in tl.layers.get_variables_with_name('gamma', True, True):
-        wd_loss += tf.contrib.layers.l2_regularizer(config.weight_deacy)(gamma)
+        wd_loss += tf.contrib.layers.l2_regularizer(cfg.weight_deacy)(gamma)
     # for beta in tl.layers.get_variables_with_name('beta', True, True):
     #     wd_loss += tf.contrib.layers.l2_regularizer(args.weight_deacy)(beta)
     for alphas in tl.layers.get_variables_with_name('alphas', True, True):
-        wd_loss += tf.contrib.layers.l2_regularizer(config.weight_deacy)(alphas)
+        wd_loss += tf.contrib.layers.l2_regularizer(cfg.weight_deacy)(alphas)
     # for bias in tl.layers.get_variables_with_name('resnet_v1_50/E_DenseLayer/b', True, True):
     #     wd_loss += tf.contrib.layers.l2_regularizer(args.weight_deacy)(bias)
 
     # 3.5 total losses
     total_loss = inference_loss + wd_loss
     # 3.6 define the learning rate schedule
-    p = int(512.0/config.batch_size)
-    learning_rate_steps = [p*val for val in config.learning_rate_steps]
+    p = int(512.0/cfg.batch_size)
+    learning_rate_steps = [p*val for val in cfg.learning_rate_steps]
     print(learning_rate_steps)
-    lr = tf.train.piecewise_constant(global_step, boundaries=learning_rate_steps, values=config.schedule_lr_value, name='lr_schedule')
+    lr = tf.train.piecewise_constant(global_step, boundaries=learning_rate_steps, values=cfg.schedule_lr_value, name='lr_schedule')
     # 3.7 define the optimize method
-    opt = tf.train.MomentumOptimizer(learning_rate=lr, momentum=config.momentum)
+    opt = tf.train.MomentumOptimizer(learning_rate=lr, momentum=cfg.momentum)
     # 3.8 get train op
     grads = opt.compute_gradients(total_loss)
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -125,12 +125,12 @@ if __name__ == '__main__':
     pred = tf.nn.softmax(logit)
     acc = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred, axis=1), labels), dtype=tf.float32))
     # 3.10 define sess
-    config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=config.log_device_mapping)
+    config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=cfg.log_device_mapping)
     config.gpu_options.allow_growth = True
 
     sess = tf.Session(config=config)
     # 3.11 summary writer
-    summary = tf.summary.FileWriter(config.summary_path, sess.graph)
+    summary = tf.summary.FileWriter(cfg.summary_path, sess.graph)
     summaries = []
     # # 3.11.1 add grad histogram op
     for grad, var in grads:
@@ -147,22 +147,22 @@ if __name__ == '__main__':
     summaries.append(tf.summary.scalar('leraning_rate', lr))
     summary_op = tf.summary.merge(summaries)
     # 3.12 saver
-    saver = tf.train.Saver(max_to_keep=config.saver_maxkeep)
+    saver = tf.train.Saver(max_to_keep=cfg.saver_maxkeep)
     # 3.13 init all variables
     sess.run(tf.global_variables_initializer())
 
     # restore_saver = tf.train.Saver()
     # restore_saver.restore(sess, '/home/aurora/workspaces2018/InsightFace_TF/output/ckpt/InsightFace_iter_1110000.ckpt')
     # 4 begin iteration
-    if not os.path.exists(config.log_file_path):
-        os.makedirs(config.log_file_path)
-    log_file_path = config.log_file_path + '/train' + time.strftime('_%Y-%m-%d-%H-%M', time.localtime(time.time())) + '.log'
+    if not os.path.exists(cfg.log_file_path):
+        os.makedirs(cfg.log_file_path)
+    log_file_path = cfg.log_file_path + '/train' + time.strftime('_%Y-%m-%d-%H-%M', time.localtime(time.time())) + '.log'
     log_file = open(log_file_path, 'w')
     # 4 begin iteration
     count = 0
     total_accuracy = {}
 
-    for i in range(config.epochs):
+    for i in range(cfg.epochs):
         sess.run(iterator.initializer)
         while True:
             try:
@@ -175,50 +175,50 @@ if __name__ == '__main__':
                               feed_dict=feed_dict,
                               options=config_pb2.RunOptions(report_tensor_allocations_upon_oom=True))
                 end = time.time()
-                pre_sec = config.batch_size/(end - start)
+                pre_sec = cfg.batch_size/(end - start)
                 # print training information
-                if count > 0 and count % config.show_info_interval == 0:
+                if count > 0 and count % cfg.show_info_interval == 0:
                     print('epoch %d, total_step %d, total loss is %.2f , inference loss is %.2f, weight deacy '
                           'loss is %.2f, training accuracy is %.6f, time %.3f samples/sec' %
                           (i, count, total_loss_val, inference_loss_val, wd_loss_val, acc_val, pre_sec))
                 count += 1
 
                 # save summary
-                if count > 0 and count % config.summary_interval == 0:
+                if count > 0 and count % cfg.summary_interval == 0:
                     feed_dict = {images: images_train, labels: labels_train, dropout_rate: 0.4}
                     feed_dict.update(net.all_drop)
                     summary_op_val = sess.run(summary_op, feed_dict=feed_dict)
                     summary.add_summary(summary_op_val, count)
 
                 # save ckpt files
-                if count > 0 and count % config.ckpt_interval == 0:
+                if count > 0 and count % cfg.ckpt_interval == 0:
                     filename = 'InsightFace_iter_{:d}'.format(count) + '.ckpt'
-                    filename = os.path.join(config.ckpt_path, filename)
+                    filename = os.path.join(cfg.ckpt_path, filename)
                     saver.save(sess, filename)
 
                 # validate
-                if count > 0 and count % config.validate_interval == 0:
-                    feed_dict_test ={dropout_rate: 1.0}
-                    feed_dict_test.update(tl.utils.dict_to_one(net.all_drop))
-                    results = ver_test(ver_list=ver_list, ver_name_list=ver_name_list, nbatch=count, sess=sess,
-                             embedding_tensor=embedding_tensor, batch_size=args.batch_size, feed_dict=feed_dict_test,
-                             input_placeholder=images)
-                    print('test accuracy is: ', str(results[0]))
-                    total_accuracy[str(count)] = results[0]
-                    log_file.write('########'*10+'\n')
-                    log_file.write(','.join(list(total_accuracy.keys())) + '\n')
-                    log_file.write(','.join([str(val) for val in list(total_accuracy.values())])+'\n')
-                    log_file.flush()
-                    if max(results) > 0.996:
-                        print('best accuracy is %.5f' % max(results))
-                        filename = 'InsightFace_iter_best_{:d}'.format(count) + '.ckpt'
-                        filename = os.path.join(config.ckpt_path, filename)
-                        saver.save(sess, filename)
-                        log_file.write('######Best Accuracy######'+'\n')
-                        log_file.write(str(max(results))+'\n')
-                        log_file.write(filename+'\n')
+                # if count > 0 and count % config.validate_interval == 0:
+                #     feed_dict_test ={dropout_rate: 1.0}
+                #     feed_dict_test.update(tl.utils.dict_to_one(net.all_drop))
+                #     results = ver_test(ver_list=ver_list, ver_name_list=ver_name_list, nbatch=count, sess=sess,
+                #              embedding_tensor=embedding_tensor, batch_size=args.batch_size, feed_dict=feed_dict_test,
+                #              input_placeholder=images)
+                #     print('test accuracy is: ', str(results[0]))
+                #     total_accuracy[str(count)] = results[0]
+                #     log_file.write('########'*10+'\n')
+                #     log_file.write(','.join(list(total_accuracy.keys())) + '\n')
+                #     log_file.write(','.join([str(val) for val in list(total_accuracy.values())])+'\n')
+                #     log_file.flush()
+                #     if max(results) > 0.996:
+                #         print('best accuracy is %.5f' % max(results))
+                #         filename = 'InsightFace_iter_best_{:d}'.format(count) + '.ckpt'
+                #         filename = os.path.join(config.ckpt_path, filename)
+                #         saver.save(sess, filename)
+                #         log_file.write('######Best Accuracy######'+'\n')
+                #         log_file.write(str(max(results))+'\n')
+                #         log_file.write(filename+'\n')
 
-                        log_file.flush()
+                #         log_file.flush()
             except tf.errors.OutOfRangeError:
                 print("End of epoch %d" % i)
                 break
